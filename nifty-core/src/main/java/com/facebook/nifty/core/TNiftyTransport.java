@@ -1,17 +1,17 @@
-/**
- * Copyright 2012 Facebook, Inc.
+/*
+ * Copyright (C) 2012-2013 Facebook, Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may
- * not use this file except in compliance with the License. You may obtain
- * a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations
- * under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package com.facebook.nifty.core;
 
@@ -28,13 +28,17 @@ public class TNiftyTransport extends TTransport
 {
     private final Channel channel;
     private final ChannelBuffer in;
+    private final ThriftTransportType thriftTransportType;
     private final ChannelBuffer out;
     private static final int DEFAULT_OUTPUT_BUFFER_SIZE = 1024;
 
-    public TNiftyTransport(Channel channel, ChannelBuffer in)
+    public TNiftyTransport(Channel channel,
+                           ChannelBuffer in,
+                           ThriftTransportType thriftTransportType)
     {
         this.channel = channel;
         this.in = in;
+        this.thriftTransportType = thriftTransportType;
         this.out = ChannelBuffers.dynamicBuffer(DEFAULT_OUTPUT_BUFFER_SIZE);
     }
 
@@ -68,6 +72,12 @@ public class TNiftyTransport extends TTransport
     }
 
     @Override
+    public int readAll(byte[] bytes, int offset, int length) throws TTransportException {
+        in.readBytes(bytes, offset, length);
+        return length;
+    }
+
+    @Override
     public void write(byte[] bytes, int offset, int length)
             throws TTransportException
     {
@@ -79,10 +89,15 @@ public class TNiftyTransport extends TTransport
         return out;
     }
 
+    public ThriftTransportType getTransportType() {
+        return thriftTransportType;
+    }
+
     @Override
     public void flush()
             throws TTransportException
     {
-        channel.write(out);
+        // Flush is a no-op: NiftyDispatcher will write the response to the Channel, in order to
+        // guarantee ordering of responses when required.
     }
 }

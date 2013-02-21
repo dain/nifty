@@ -1,17 +1,17 @@
-/**
- * Copyright 2012 Facebook, Inc.
+/*
+ * Copyright (C) 2012-2013 Facebook, Inc.
  *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may
- * not use this file except in compliance with the License. You may obtain
- * a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations
- * under the License.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package com.facebook.nifty.server;
 
@@ -30,7 +30,8 @@ import org.apache.thrift.transport.TTransportException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
-import org.testng.annotations.BeforeTest;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -46,17 +47,21 @@ public class TestNiftyClient
     private NiftyBootstrap bootstrap;
     private int port;
 
-    @BeforeTest(alwaysRun = true)
-    public void setup()
+    @BeforeMethod(alwaysRun = true)
+    public void setup() throws IOException
     {
-        try {
-            ServerSocket s = new ServerSocket();
-            s.bind(new InetSocketAddress(0));
-            port = s.getLocalPort();
-            s.close();
-        }
-        catch (IOException e) {
-            port = 8080;
+        ServerSocket s = new ServerSocket();
+        s.bind(new InetSocketAddress(0));
+        port = s.getLocalPort();
+        s.close();
+    }
+
+    @AfterMethod(alwaysRun = true)
+    public void tearDown()
+    {
+        if (bootstrap != null)
+        {
+            bootstrap.stop();
         }
     }
 
@@ -65,7 +70,8 @@ public class TestNiftyClient
             throws Exception
     {
         startServer();
-        scribe.Client client = makeNiftyClient();
+        final NiftyClient niftyClient = new NiftyClient();
+        scribe.Client client = makeNiftyClient(niftyClient);
         new Thread()
         {
             @Override
@@ -76,6 +82,7 @@ public class TestNiftyClient
                     bootstrap.stop();
                 }
                 catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
                 }
             }
         }.start();
@@ -93,6 +100,8 @@ public class TestNiftyClient
             }
         }
         Assert.assertTrue(exceptionCount > 0);
+
+        niftyClient.close();
     }
 
     private void startServer()
@@ -106,7 +115,7 @@ public class TestNiftyClient
                     {
                         bind().toInstance(new ThriftServerDefBuilder()
                                 .listen(port)
-                                .withProcessor(new scribe.Processor(new scribe.Iface()
+                                .withProcessor(new scribe.Processor<>(new scribe.Iface()
                                 {
                                     @Override
                                     public ResultCode Log(List<LogEntry> messages)
@@ -126,11 +135,11 @@ public class TestNiftyClient
         bootstrap.start();
     }
 
-    private scribe.Client makeNiftyClient()
+    private scribe.Client makeNiftyClient(final NiftyClient niftyClient)
             throws TTransportException, InterruptedException
     {
         InetSocketAddress address = new InetSocketAddress("localhost", port);
-        TBinaryProtocol tp = new TBinaryProtocol(new NiftyClient().connectSync(address));
+        TBinaryProtocol tp = new TBinaryProtocol(niftyClient.connectSync(address));
         return new scribe.Client(tp);
     }
 }
